@@ -1,0 +1,119 @@
+name: Terraform/Terragrunt Checks and Apply
+
+on:
+  workflow_call:
+    inputs:
+      workdir:
+        required: true
+        type: string
+      aws_region:
+        required: true
+        type: string
+      terraform_version:
+        required: false
+        default: 1.3.6
+        type: string
+      use_terragrunt:
+        required: false
+        default: false
+        type: boolean
+      terragrunt_version:
+        required: false
+        default: 0.42.3
+        type: string
+      tf_modules_another_private_repo:
+        required: false
+        default: false
+        type: boolean
+      require_approval:
+        required: false
+        default: true
+        type: boolean
+    secrets:
+      aws_iam_role:
+        required: true
+      aws_profile:
+        required: true
+      ssh_private_key:
+        required: false
+
+jobs:
+  terraform-checks:
+    name: "Terraform"
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ${{ inputs.workdir }}
+
+    steps:
+      - name: Check Dependencies
+        env:
+          check_ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY != '' }}
+        shell: bash
+        if: ${{ inputs.tf_modules_another_private_repo == true && env.check_ssh_private_key != 'true' }}
+        run: |
+          echo 'Please, configure your secret ssh_private_key so GitHub Actions can download the TF modules from a different repository'
+          echo 'Check https://stackoverflow.com/a/70283191/2868547 for more information'
+          exit 1
+
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-region: ${{ inputs.aws_region }}
+          role-to-assume: ${{ secrets.aws_iam_role }}
+
+      - name: Set up a new AWS Profile locally
+        run: |
+          mkdir -p ~/.aws/
+          echo '[${{ secrets.aws_profile }}]' >> ~/.aws/credentials
+          echo "AWS_ACCESS_KEY_ID = ${AWS_ACCESS_KEY_ID}" >> ~/.aws/credentials
+          echo "AWS_SECRET_ACCESS_KEY = ${AWS_SECRET_ACCESS_KEY}" >> ~/.aws/credentials
+          echo "AWS_SESSION_TOKEN = ${AWS_SESSION_TOKEN}" >> ~/.aws/credentials
+          sed -i 's/^ *.profile.*"$//' {../,../../}terragrunt.hcl || true
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: ${{ inputs.terraform_version }}
+          terraform_wrapper: ${{ inputs.use_terragrunt }}
+
+      - name: Setup Terragrunt
+        if: inputs.use_terragrunt == true
+        run: |
+          sudo wget -q -O /bin/t "https://github.com/gruntwork-io/terragrunt/releases/download/v${{ inputs.terragrunt_version }}/terragrunt_linux_amd64"
+          sudo chmod +x /bin/t
+
+      - name: Set symbolic link for terraform
+        if: inputs.use_terragrunt == false
+        run: |
+          sudo update-alternatives --install /usr/local/bin/t t $(which terraform) 0
+
+      - name: Terraform Plan
+        id: plan
+        run: |
+          eval `ssh-agent -s`
+          ssh-add - <<< '${{ secrets.SSH_PRIVATE_KEY }}'
+          t plan -out=tf-plan.out -input=false --terragrunt-non-interactive
+
+      - name: Require approval
+        uses: trstringer/manual-approval@v1
+        id: require_approval
+        if: inputs.require_approval == true
+        timeout-minutes: 3
+        with:
+          secret: ${{ secrets.GITHUB_TOKEN }}
+          approvers: LozanoMatheus
+          minimum-approvals: 1
+          issue-title: "Deploying ${{ inputs.workdir }} to ${{ secrets.aws_profile }}"
+          exclude-workflow-initiator-as-approver: false
+        continue-on-error: true
+
+      - name: Terraform Apply
+        if: ${{ contains(steps.plan.outputs.stdout, 'To perform exactly these actions, run the following command to apply') && steps.require_approval.outcome == 'success' }}
+        id: apply
+        run: |
+          t apply "tf-plan.out" --terragrunt-non-interactive
