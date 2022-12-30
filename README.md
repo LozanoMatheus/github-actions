@@ -25,7 +25,7 @@ A workflow that will run `fmt -check`, `init`, `validate`, and `plan`. In the en
 ```yaml
 jobs:
   terraform:
-    uses: LozanoMatheus/github-actions/.github/workflows/terraform-checks-and-plan.yaml@v0.1.0
+    uses: LozanoMatheus/github-actions/.github/workflows/terraform-checks-and-plan.yaml@latest
     permissions:
       id-token: write                                   ## This is because of the connection with the AWS IAM Identity Providers 
       contents: read                                    ## This is to allow read the remote git code
@@ -56,7 +56,7 @@ This is an example of the issue create for the approval:
 ```yaml
 jobs:
   terraform:
-    uses: LozanoMatheus/github-actions/.github/workflows/terraform-apply.yaml@v0.2.0
+    uses: LozanoMatheus/github-actions/.github/workflows/terraform-apply.yaml@latest
     permissions:
       id-token: write                                   ## This is because of the connection with the AWS IAM Identity Providers 
       contents: read                                    ## This is to allow read the remote git code
