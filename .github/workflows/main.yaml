@@ -36,6 +36,21 @@ jobs:
           INITIAL_VERSION: 0.0.0
           DEFAULT_BUMP: minor
 
+      - name: Create latest tag
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          name: latest
+          tag_name: latest
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: true
+          body: |
+            ## What's Changed
+            ${{ env.CHANGELOG }}
+            Full Changelog: ${{ github.event.compare }}
+
       - name: Create release
         uses: softprops/action-gh-release@v1
         env:
