@@ -102,7 +102,7 @@ jobs:
       - name: Require approval
         uses: trstringer/manual-approval@v1
         id: require_approval
-        if: inputs.require_approval == true
+        if: ${{ contains(steps.plan.outputs.stdout, 'To perform exactly these actions, run the following command to apply') && inputs.require_approval == true }}
         timeout-minutes: 3
         with:
           secret: ${{ secrets.GITHUB_TOKEN }}
