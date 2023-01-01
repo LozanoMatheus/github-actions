@@ -4,6 +4,25 @@ These are workflows that you can easily re-use them.
 
 Please, check the [Reusing workflows](https://docs.github.com/en/actions/using-workflows/reusing-workflows) official documentation.
 
+All GitHub Actions Reuse Workflows have a specific version and the latest version will also create a latest tag/version. So, you can use `uses: ...@latest` or `uses: ...@v0.7.0`.
+
+## GitHub Tag and Release
+
+This workflows will create do the versioning by creating a new GitHub tag a release. It will also create a `latest` tag/release based on the latest version created.
+
+> Note: By using the GitHub configuration `Allow merge commits` in your repository, it will allow you to use the `Create a merge commit` when merging a Pull Request. This will make a nicer `What's Changed` (e.g. [v0.7.0](https://github.com/LozanoMatheus/github-actions/releases/tag/v0.7.0)). Otherwise, it will create a bit broken (e.g. [v0.1.0](https://github.com/LozanoMatheus/github-actions/releases/tag/v0.1.0)). I'll work in a hotfix for, so any PR merge option will be nicely formatted.
+
+```yaml
+jobs:
+  terraform:
+    uses: LozanoMatheus/github-actions/.github/workflows/build-and-release.yaml@latest
+    permissions:
+      contents: write
+```
+
+This is an example of a new/latest release:
+![Example Terraform/Terragurnt Apply](./images/example-build-and-release.yaml.png)
+
 ## Terraform checks and plan
 
 This pipeline will run a few terraform (or terragrunt) commands and write the output to a PR.
